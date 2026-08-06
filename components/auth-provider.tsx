@@ -12,6 +12,7 @@ import {
   getSession,
   signIn as authSignIn,
   signOut as authSignOut,
+  subscribeSession,
   type AuthSession,
 } from "@/lib/auth";
 
@@ -25,30 +26,14 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** Cached client session so useSyncExternalStore snapshots stay referentially stable. */
-let cachedSession: AuthSession | null | undefined;
-const listeners = new Set<() => void>();
+function subscribe(listener: () => void) {
+  return subscribeSession(listener);
+}
 
 function getClientSession(): AuthSession | null {
-  if (cachedSession === undefined) {
-    cachedSession = getSession();
-  }
-  return cachedSession;
+  return getSession();
 }
 
-function setClientSession(session: AuthSession | null) {
-  cachedSession = session;
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-/** true on server / during hydration, false once the client snapshot is used. */
 function subscribeHydrated() {
   return () => {};
 }
@@ -73,17 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loading = !hydrated;
 
   const refresh = useCallback(() => {
-    setClientSession(getSession());
+    void getSession();
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const s = await authSignIn(email, password);
-    setClientSession(s);
+    await authSignIn(email, password);
   }, []);
 
   const signOut = useCallback(() => {
     authSignOut();
-    setClientSession(null);
   }, []);
 
   const value = useMemo(

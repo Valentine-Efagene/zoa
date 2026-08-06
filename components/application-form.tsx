@@ -49,9 +49,12 @@ function ensureGroups(
 export function ApplicationForm({
   application: initialApp,
   workflow,
+  forceReadOnly = false,
 }: {
   application: Application;
   workflow: WorkflowDefinition;
+  /** Admin review: always read-only regardless of status */
+  forceReadOnly?: boolean;
 }) {
   const router = useRouter();
   const updateApplication = useUpdateApplication(initialApp.id);
@@ -123,7 +126,8 @@ export function ApplicationForm({
   }
 
   const status = updateApplication.data?.application.status ?? initialApp.status;
-  const readOnly = status !== "draft";
+  const readOnly =
+    forceReadOnly || (status !== "draft" && status !== "needs_info");
   const pending = updateApplication.isPending;
 
   return (
@@ -138,8 +142,17 @@ export function ApplicationForm({
             {workflow.description}
           </p>
         </div>
-        <Badge variant="secondary">{STATUS_LABELS[status]}</Badge>
-      </div>
+          <Badge variant="secondary">{STATUS_LABELS[status]}</Badge>
+        </div>
+
+      {initialApp.adminNote && status === "needs_info" ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+          <p className="font-medium text-amber-900 dark:text-amber-200">
+            More information required
+          </p>
+          <p className="mt-1 text-muted-foreground">{initialApp.adminNote}</p>
+        </div>
+      ) : null}
 
       <fieldset disabled={readOnly || pending} className="space-y-10">
         <section className="space-y-4">
@@ -244,7 +257,7 @@ export function ApplicationForm({
             disabled={pending}
             onClick={() => save("submitted")}
           >
-            Submit application
+            {status === "needs_info" ? "Resubmit application" : "Submit application"}
           </Button>
           <p className="text-xs text-muted-foreground">
             Typical turnaround: {workflow.estimatedDays}

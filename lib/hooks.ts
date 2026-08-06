@@ -139,3 +139,46 @@ export function useUploadDocument(applicationId: string) {
     },
   });
 }
+
+export function useAdminApplications(status?: string) {
+  return useQuery({
+    queryKey: queryKeys.admin.applications(status),
+    queryFn: async () => {
+      const res = await api.adminListApplications(status);
+      return res.applications;
+    },
+  });
+}
+
+export function useAdminApplication(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.admin.detail(id ?? ""),
+    queryFn: async () => {
+      if (!id) throw new Error("Missing application id");
+      return api.adminGetApplication(id);
+    },
+    enabled: Boolean(id),
+  });
+}
+
+export function useAdminUpdateApplication(applicationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      status: Exclude<import("@/lib/types").Application["status"], "draft">;
+      adminNote?: string;
+    }) => api.adminUpdateApplication(applicationId, body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        queryKeys.admin.detail(applicationId),
+        (prev: { application: unknown; workflow: unknown } | undefined) =>
+          prev
+            ? { ...prev, application: data.application }
+            : { application: data.application, workflow: null },
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "applications"],
+      });
+    },
+  });
+}

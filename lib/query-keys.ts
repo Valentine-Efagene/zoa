@@ -13,6 +13,11 @@ export const queryKeys = {
     all: ["applications"] as const,
     detail: (id: string) => ["applications", id] as const,
   },
+  admin: {
+    applications: (status?: string) =>
+      ["admin", "applications", status ?? "all"] as const,
+    detail: (id: string) => ["admin", "applications", id] as const,
+  },
 };
 
 export type UpdateApplicationInput = {

@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, LayoutDashboard, LogOut, Plus } from "lucide-react";
+import {
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Plus,
+  Shield,
+} from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const links = [
+const applicantLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/applications", label: "Applications", icon: FileText },
   { href: "/applications/new", label: "New application", icon: Plus },
@@ -16,6 +23,14 @@ const links = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { session, signOut } = useAuth();
+  const isAdmin = Boolean(session?.isAdmin);
+
+  const links = [
+    ...applicantLinks,
+    ...(isAdmin
+      ? [{ href: "/admin", label: "Admin inbox", icon: Shield }]
+      : []),
+  ];
 
   return (
     <div className="min-h-full bg-[var(--zoa-canvas)]">
@@ -23,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-8">
             <Link
-              href="/dashboard"
+              href={isAdmin && pathname.startsWith("/admin") ? "/admin" : "/dashboard"}
               className="font-[family-name:var(--font-display)] text-xl tracking-tight text-foreground"
             >
               Zoa
@@ -53,6 +68,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            {isAdmin ? (
+              <Badge variant="secondary" className="hidden sm:inline-flex">
+                Admin
+              </Badge>
+            ) : null}
             <span className="hidden text-sm text-muted-foreground md:inline">
               {session?.name || session?.email}
             </span>
@@ -61,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               size="sm"
               onClick={() => {
                 signOut();
-                window.location.href = "/login";
+                window.location.assign("/login");
               }}
             >
               <LogOut className="size-3.5" />

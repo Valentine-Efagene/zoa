@@ -1,6 +1,8 @@
 "use client";
 
 const TOKEN_KEY = "zoa_auth";
+/** Refresh id token this many ms before hard expiry */
+const REFRESH_SKEW_MS = 60_000;
 
 export interface AuthSession {
   idToken: string;
@@ -9,37 +11,104 @@ export interface AuthSession {
   email: string;
   name?: string;
   expiresAt: number;
+  groups: string[];
+  isAdmin: boolean;
+  role: "admin" | "user";
 }
 
 function isBrowser() {
   return typeof window !== "undefined";
 }
 
-export function getSession(): AuthSession | null {
+/** Stable client snapshot for useSyncExternalStore */
+let snapshot: AuthSession | null = null;
+let snapshotRaw: string | null = null;
+const sessionListeners = new Set<() => void>();
+
+function readRaw(): string | null {
   if (!isBrowser()) return null;
   try {
-    const raw = localStorage.getItem(TOKEN_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw) as AuthSession;
-    if (session.expiresAt && session.expiresAt < Date.now()) {
-      // keep session if refresh token exists; API still uses idToken until re-login
-      if (!session.refreshToken) {
-        localStorage.removeItem(TOKEN_KEY);
-        return null;
-      }
-    }
-    return session;
+    return localStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
+function syncSnapshotFromStorage() {
+  const raw = readRaw();
+  if (raw === snapshotRaw) return;
+  snapshotRaw = raw;
+  if (!raw) {
+    snapshot = null;
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw) as AuthSession;
+    // Backfill role fields for sessions saved before roles existed
+    if (parsed.groups === undefined) {
+      const groups = groupsFromTokens(
+        parsed.idToken ?? "",
+        parsed.accessToken ?? "",
+      );
+      parsed.groups = groups;
+      parsed.isAdmin = groups.includes("admin");
+      parsed.role = parsed.isAdmin ? "admin" : "user";
+    }
+    snapshot = parsed;
+  } catch {
+    snapshot = null;
+    snapshotRaw = null;
+  }
+}
+
+export function getSession(): AuthSession | null {
+  syncSnapshotFromStorage();
+  return snapshot;
+}
+
 export function saveSession(session: AuthSession) {
-  localStorage.setItem(TOKEN_KEY, JSON.stringify(session));
+  if (!isBrowser()) return;
+  const raw = JSON.stringify(session);
+  localStorage.setItem(TOKEN_KEY, raw);
+  snapshotRaw = raw;
+  snapshot = session;
+  notifySessionListeners();
 }
 
 export function clearSession() {
+  if (!isBrowser()) return;
   localStorage.removeItem(TOKEN_KEY);
+  snapshotRaw = null;
+  snapshot = null;
+  notifySessionListeners();
+}
+
+/**
+ * Clear credentials and send the user to login when the session
+ * cannot be recovered (expired id token + failed/missing refresh).
+ */
+export function forceLogout(
+  reason: "session_expired" | "signed_out" = "session_expired",
+) {
+  clearSession();
+  if (!isBrowser()) return;
+
+  const path = window.location.pathname;
+  if (path.startsWith("/login") || path.startsWith("/signup")) return;
+
+  const params = new URLSearchParams({ reason });
+  window.location.replace(`/login?${params.toString()}`);
+}
+
+export function subscribeSession(listener: () => void) {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+
+function notifySessionListeners() {
+  sessionListeners.forEach((l) => l());
 }
 
 const poolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? "";
@@ -76,14 +145,163 @@ async function cognitoRequest(
   return data;
 }
 
-function parseIdToken(idToken: string) {
-  const payload = JSON.parse(atob(idToken.split(".")[1] ?? "")) as {
-    email?: string;
-    name?: string;
-    given_name?: string;
-    exp?: number;
+function parseJwtPayload(token: string) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as {
+      email?: string;
+      name?: string;
+      given_name?: string;
+      exp?: number;
+      "cognito:groups"?: string[] | string;
+    };
+    return payload;
+  } catch {
+    return {};
+  }
+}
+
+function groupsFromTokens(idToken: string, accessToken: string): string[] {
+  const from = (token: string) => {
+    const raw = parseJwtPayload(token)["cognito:groups"];
+    if (Array.isArray(raw)) return raw.filter((g) => typeof g === "string");
+    if (typeof raw === "string") return [raw];
+    return [] as string[];
   };
-  return payload;
+  const groups = [...from(idToken), ...from(accessToken)];
+  return [...new Set(groups)];
+}
+
+function sessionFromAuthResult(
+  result: {
+    IdToken: string;
+    AccessToken: string;
+    RefreshToken?: string;
+    ExpiresIn: number;
+  },
+  previous?: AuthSession | null,
+  emailFallback?: string,
+): AuthSession {
+  const claims = parseJwtPayload(result.IdToken);
+  const expMs =
+    typeof claims.exp === "number"
+      ? claims.exp * 1000
+      : Date.now() + result.ExpiresIn * 1000;
+
+  const groups = groupsFromTokens(result.IdToken, result.AccessToken);
+  const isAdmin = groups.includes("admin");
+
+  return {
+    idToken: result.IdToken,
+    accessToken: result.AccessToken,
+    refreshToken: result.RefreshToken ?? previous?.refreshToken,
+    email: claims.email ?? previous?.email ?? emailFallback ?? "",
+    name: claims.name ?? claims.given_name ?? previous?.name,
+    expiresAt: expMs,
+    groups,
+    isAdmin,
+    role: isAdmin ? "admin" : "user",
+  };
+}
+
+function isTokenFresh(session: AuthSession) {
+  return session.expiresAt - REFRESH_SKEW_MS > Date.now();
+}
+
+let refreshInFlight: Promise<AuthSession | null> | null = null;
+
+/**
+ * Exchange refresh token for new id/access tokens (single-flight).
+ * On terminal failure, clears the session and logs the user out.
+ */
+export async function refreshSession(options?: {
+  /** When false, only clear storage — no redirect (rare). Default true. */
+  redirectOnFailure?: boolean;
+}): Promise<AuthSession | null> {
+  const redirectOnFailure = options?.redirectOnFailure !== false;
+
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const fail = (): null => {
+      if (redirectOnFailure) forceLogout("session_expired");
+      else clearSession();
+      return null;
+    };
+
+    const current = getSession();
+    if (!current?.refreshToken) {
+      return fail();
+    }
+
+    if (!isCognitoConfigured()) {
+      const extended: AuthSession = {
+        ...current,
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        groups: current.groups ?? (current.isAdmin ? ["admin"] : ["user"]),
+        isAdmin: Boolean(current.isAdmin),
+        role: current.isAdmin ? "admin" : "user",
+      };
+      saveSession(extended);
+      return extended;
+    }
+
+    try {
+      const data = await cognitoRequest("InitiateAuth", {
+        AuthFlow: "REFRESH_TOKEN_AUTH",
+        ClientId: clientId,
+        AuthParameters: {
+          REFRESH_TOKEN: current.refreshToken,
+        },
+      });
+
+      const result = data.AuthenticationResult as
+        | {
+            IdToken: string;
+            AccessToken: string;
+            RefreshToken?: string;
+            ExpiresIn: number;
+          }
+        | undefined;
+
+      if (!result?.IdToken) {
+        return fail();
+      }
+
+      const next = sessionFromAuthResult(result, current);
+      saveSession(next);
+      return next;
+    } catch {
+      return fail();
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+/**
+ * Return a session with a non-expired id token, refreshing if needed.
+ * Logs out when the id token is stale and refresh is impossible.
+ */
+export async function ensureFreshSession(): Promise<AuthSession | null> {
+  const current = getSession();
+  if (!current?.idToken) return null;
+
+  if (
+    current.idToken === "dev-token" ||
+    current.idToken === "dev-admin-token" ||
+    isTokenFresh(current)
+  ) {
+    return current;
+  }
+
+  if (!current.refreshToken) {
+    forceLogout("session_expired");
+    return null;
+  }
+
+  return refreshSession();
 }
 
 export async function signUp(input: {
@@ -93,13 +311,15 @@ export async function signUp(input: {
   familyName: string;
 }) {
   if (!isCognitoConfigured()) {
-    // Local mock for UI development without Cognito
     saveSession({
       idToken: "dev-token",
       accessToken: "dev-token",
       email: input.email,
       name: `${input.givenName} ${input.familyName}`.trim(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      groups: ["user"],
+      isAdmin: false,
+      role: "user",
     });
     return { needsConfirmation: false };
   }
@@ -129,12 +349,18 @@ export async function confirmSignUp(email: string, code: string) {
 
 export async function signIn(email: string, password: string) {
   if (!isCognitoConfigured()) {
+    // Prefix admin@ or use password "admin" locally → admin mock
+    const isAdmin =
+      email.toLowerCase().startsWith("admin") || password === "admin";
     saveSession({
-      idToken: "dev-token",
-      accessToken: "dev-token",
+      idToken: isAdmin ? "dev-admin-token" : "dev-token",
+      accessToken: isAdmin ? "dev-admin-token" : "dev-token",
       email,
       name: email.split("@")[0],
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      groups: isAdmin ? ["admin", "user"] : ["user"],
+      isAdmin,
+      role: isAdmin ? "admin" : "user",
     });
     return getSession()!;
   }
@@ -161,15 +387,7 @@ export async function signIn(email: string, password: string) {
     throw new Error("Authentication did not return tokens");
   }
 
-  const claims = parseIdToken(result.IdToken);
-  const session: AuthSession = {
-    idToken: result.IdToken,
-    accessToken: result.AccessToken,
-    refreshToken: result.RefreshToken,
-    email: claims.email ?? email,
-    name: claims.name ?? claims.given_name,
-    expiresAt: Date.now() + result.ExpiresIn * 1000,
-  };
+  const session = sessionFromAuthResult(result, null, email);
   saveSession(session);
   return session;
 }

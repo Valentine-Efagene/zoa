@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
@@ -15,16 +15,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { isCognitoConfigured } from "@/lib/auth";
 
-export default function LoginPage() {
+function LoginForm() {
   const { signIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    const reason = searchParams.get("reason");
+    if (reason === "session_expired") {
+      toast.message("Your session expired. Please sign in again.");
+    }
+  }, [searchParams]);
 
   const loginMutation = useMutation({
     mutationFn: () => signIn(email, password),
     onSuccess: () => {
-      router.push("/dashboard");
+      const from = searchParams.get("from");
+      router.push(from && from.startsWith("/") ? from : "/dashboard");
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
@@ -102,5 +111,19 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-full flex-1 items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

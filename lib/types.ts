@@ -112,6 +112,9 @@ export interface Application {
   createdAt: string;
   updatedAt: string;
   submittedAt?: string;
+  applicantEmail?: string;
+  applicantName?: string;
+  adminNote?: string;
 }
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {

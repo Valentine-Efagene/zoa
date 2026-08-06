@@ -1,4 +1,8 @@
-import { getSession } from "./auth";
+import {
+  ensureFreshSession,
+  forceLogout,
+  refreshSession,
+} from "./auth";
 import type {
   Application,
   FormDataMap,
@@ -28,6 +32,10 @@ export class ApiError extends Error {
   }
 }
 
+function sessionExpiredError() {
+  return new ApiError("Session expired. Please sign in again.", 401);
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -35,11 +43,14 @@ async function request<T>(
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
+
   if (auth) {
-    const session = getSession();
-    if (session?.idToken) {
-      headers.set("Authorization", `Bearer ${session.idToken}`);
+    const session = await ensureFreshSession();
+    if (!session?.idToken) {
+      // ensureFreshSession already forceLogout'd when tokens were unrecoverable
+      throw sessionExpiredError();
     }
+    headers.set("Authorization", `Bearer ${session.idToken}`);
   }
 
   let res: Response;
@@ -55,11 +66,36 @@ async function request<T>(
     );
   }
 
+  // One retry after forced refresh on unauthorized
+  if (auth && res.status === 401) {
+    const refreshed = await refreshSession();
+    if (refreshed?.idToken) {
+      headers.set("Authorization", `Bearer ${refreshed.idToken}`);
+      try {
+        res = await fetch(`${apiBaseUrl()}${path}`, {
+          ...options,
+          headers,
+        });
+      } catch {
+        throw new ApiError(
+          "Failed to reach the API. Check NEXT_PUBLIC_API_URL and that CORS allows this origin.",
+          0,
+        );
+      }
+    } else {
+      // refreshSession already forceLogout'd
+      throw sessionExpiredError();
+    }
+  }
+
   const data = (await res.json().catch(() => ({}))) as {
     error?: string;
   } & T;
 
   if (!res.ok) {
+    if (res.status === 401) {
+      forceLogout("session_expired");
+    }
     throw new ApiError(data.error ?? res.statusText, res.status);
   }
   return data as T;
@@ -115,4 +151,30 @@ export const api = {
         body: JSON.stringify(body),
       },
     ),
+
+  adminListApplications: (status?: string) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return request<{ applications: Application[] }>(
+      `/admin/applications${qs}`,
+    );
+  },
+
+  adminGetApplication: (id: string) =>
+    request<{ application: Application; workflow: WorkflowDefinition }>(
+      `/admin/applications/${id}`,
+    ),
+
+  adminUpdateApplication: (
+    id: string,
+    body: {
+      status: Exclude<Application["status"], "draft">;
+      adminNote?: string;
+    },
+  ) =>
+    request<{ application: Application }>(`/admin/applications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 };
+
+export { getSession } from "./auth";
