@@ -45,7 +45,7 @@ export function clearSession() {
 const poolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? "";
 const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "";
 const region =
-  process.env.NEXT_PUBLIC_AWS_REGION ?? poolId.split("_")[0] ?? "eu-west-1";
+  process.env.NEXT_PUBLIC_AWS_REGION ?? poolId.split("_")[0] ?? "us-east-1";
 
 export function isCognitoConfigured() {
   return Boolean(poolId && clientId);

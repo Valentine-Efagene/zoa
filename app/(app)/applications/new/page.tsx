@@ -42,8 +42,8 @@ function NewApplicationInner() {
           New application
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Choose a registration workflow. You will fill only the fields that
-          apply — add directors, shareholders, or trustees as needed.
+          Choose a registration workflow. Add directors, shareholders,
+          subscribers, trustees, or beneficial owners as needed.
         </p>
       </div>
 

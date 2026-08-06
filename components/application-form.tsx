@@ -71,7 +71,7 @@ export function ApplicationForm({
   const trusteeOptions = useMemo(() => {
     const trustees = formData.trustees;
     if (!Array.isArray(trustees)) return [] as string[];
-    return trustees.map((t, i) => {
+    return (trustees as PersonRecord[]).map((t, i) => {
       const name = [t.firstName, t.surname].filter(Boolean).join(" ");
       return name ? `Trustee ${i + 1} — ${name}` : `Trustee ${i + 1}`;
     });

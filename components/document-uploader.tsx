@@ -29,10 +29,11 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function fileIcon(contentType: string) {
-  if (contentType.startsWith("image/")) return ImageIcon;
-  if (contentType.includes("pdf")) return FileTextIcon;
-  return FileIcon;
+function FileTypeIcon({ contentType }: { contentType?: string }) {
+  if (!contentType) return <UploadIcon />;
+  if (contentType.startsWith("image/")) return <ImageIcon />;
+  if (contentType.includes("pdf")) return <FileTextIcon />;
+  return <FileIcon />;
 }
 
 interface DocumentUploaderProps {
@@ -127,7 +128,6 @@ function SingleDocumentUpload({
     }
   }
 
-  const Icon = local ? fileIcon(local.contentType) : UploadIcon;
   const attachmentState =
     state === "uploading"
       ? "uploading"
@@ -175,7 +175,7 @@ function SingleDocumentUpload({
       {(local || state === "uploading" || state === "error") && (
         <Attachment state={attachmentState} className="w-full max-w-md">
           <AttachmentMedia>
-            <Icon />
+            <FileTypeIcon contentType={local?.contentType} />
           </AttachmentMedia>
           <AttachmentContent>
             <AttachmentTitle>

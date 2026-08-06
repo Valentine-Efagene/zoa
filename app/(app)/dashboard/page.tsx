@@ -103,7 +103,7 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-dashed border-border bg-background/50 px-6 py-12 text-center">
             <FileText className="mx-auto size-8 text-muted-foreground/60" />
             <p className="mt-3 text-sm text-muted-foreground">
-              No applications yet. Start a company or trustees registration.
+              No applications yet. Start a company, trustees, or SCUML filing.
             </p>
             <Button className="mt-4" render={<Link href="/applications/new" />}>
               Choose a workflow

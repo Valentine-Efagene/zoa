@@ -24,9 +24,9 @@ export default function HomePage() {
           Zoa
         </h1>
         <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          Guided questionnaires for company and incorporated trustees
-          registration — with smart multi-person capture and document uploads
-          in one place.
+          Guided questionnaires for CAC companies, incorporated trustees, and
+          SCUML registration — multi-person capture and document uploads in one
+          place.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button size="lg" render={<Link href="/signup" />}>
