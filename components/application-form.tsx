@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -14,7 +14,7 @@ import { DocumentUploader } from "@/components/document-uploader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { api } from "@/lib/api";
+import { useUpdateApplication } from "@/lib/hooks";
 import type {
   Application,
   ApplicationDocument,
@@ -38,7 +38,9 @@ function ensureGroups(
   }
   for (const singular of workflow.singulars ?? []) {
     if (next[singular.id] === undefined) {
-      next[singular.id] = singular.optional ? null : emptyPerson(singular.fields);
+      next[singular.id] = singular.optional
+        ? null
+        : emptyPerson(singular.fields);
     }
   }
   return next;
@@ -52,21 +54,25 @@ export function ApplicationForm({
   workflow: WorkflowDefinition;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [application, setApplication] = useState(initialApp);
+  const updateApplication = useUpdateApplication(initialApp.id);
   const [formData, setFormData] = useState<FormDataMap>(() =>
     ensureGroups(workflow, initialApp.formData),
   );
   const [documents, setDocuments] = useState(initialApp.documents);
-  const [singularEnabled, setSingularEnabled] = useState<Record<string, boolean>>(
-    () => {
-      const map: Record<string, boolean> = {};
-      for (const s of workflow.singulars ?? []) {
-        map[s.id] = Boolean(initialApp.formData[s.id]);
-      }
-      return map;
-    },
-  );
+  const [singularEnabled, setSingularEnabled] = useState<
+    Record<string, boolean>
+  >(() => {
+    const map: Record<string, boolean> = {};
+    for (const s of workflow.singulars ?? []) {
+      map[s.id] = Boolean(initialApp.formData[s.id]);
+    }
+    return map;
+  });
+
+  // Keep local draft state in sync when the query refetches (e.g. after upload)
+  useEffect(() => {
+    setDocuments(initialApp.documents);
+  }, [initialApp.documents]);
 
   const trusteeOptions = useMemo(() => {
     const trustees = formData.trustees;
@@ -94,30 +100,31 @@ export function ApplicationForm({
     });
   }
 
-  async function save(status?: Application["status"]) {
-    startTransition(async () => {
-      try {
-        const { application: updated } = await api.updateApplication(
-          application.id,
-          {
-            formData,
-            ...(status ? { status } : {}),
-          },
-        );
-        setApplication(updated);
-        toast.success(
-          status === "submitted" ? "Application submitted" : "Draft saved",
-        );
-        if (status === "submitted") {
-          router.push("/dashboard");
-        }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Save failed");
-      }
-    });
+  function save(status?: Application["status"]) {
+    updateApplication.mutate(
+      {
+        formData,
+        ...(status ? { status } : {}),
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            status === "submitted" ? "Application submitted" : "Draft saved",
+          );
+          if (status === "submitted") {
+            router.push("/dashboard");
+          }
+        },
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Save failed");
+        },
+      },
+    );
   }
 
-  const readOnly = application.status !== "draft";
+  const status = updateApplication.data?.application.status ?? initialApp.status;
+  const readOnly = status !== "draft";
+  const pending = updateApplication.isPending;
 
   return (
     <div className="space-y-8">
@@ -131,7 +138,7 @@ export function ApplicationForm({
             {workflow.description}
           </p>
         </div>
-        <Badge variant="secondary">{STATUS_LABELS[application.status]}</Badge>
+        <Badge variant="secondary">{STATUS_LABELS[status]}</Badge>
       </div>
 
       <fieldset disabled={readOnly || pending} className="space-y-10">
@@ -174,7 +181,7 @@ export function ApplicationForm({
               onChange={(items) =>
                 setFormData((prev) => ({ ...prev, [group.id]: items }))
               }
-              applicationId={application.id}
+              applicationId={initialApp.id}
               documents={documents}
               onDocumentUploaded={onDocumentUploaded}
             />
@@ -197,7 +204,7 @@ export function ApplicationForm({
               onChange={(value) =>
                 setFormData((prev) => ({ ...prev, [singular.id]: value }))
               }
-              applicationId={application.id}
+              applicationId={initialApp.id}
               documents={documents}
               onDocumentUploaded={onDocumentUploaded}
             />
@@ -211,7 +218,7 @@ export function ApplicationForm({
               <SectionHeader title="Supporting documents" />
               <div className="rounded-xl border border-border/80 bg-background p-4 sm:p-5">
                 <DocumentUploader
-                  applicationId={application.id}
+                  applicationId={initialApp.id}
                   docs={workflow.documents}
                   uploaded={documents}
                   onUploaded={onDocumentUploaded}
@@ -228,14 +235,14 @@ export function ApplicationForm({
             type="button"
             variant="outline"
             disabled={pending}
-            onClick={() => void save()}
+            onClick={() => save()}
           >
-            Save draft
+            {pending ? "Saving…" : "Save draft"}
           </Button>
           <Button
             type="button"
             disabled={pending}
-            onClick={() => void save("submitted")}
+            onClick={() => save("submitted")}
           >
             Submit application
           </Button>

@@ -1,45 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { ArrowRight, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
-import type { Application, WorkflowSummary } from "@/lib/types";
+import {
+  useApplications,
+  useWorkflows,
+} from "@/lib/hooks";
 import { STATUS_LABELS } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 
 export default function DashboardPage() {
   const { session } = useAuth();
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const applicationsQuery = useApplications();
+  const workflowsQuery = useWorkflows();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [apps, wfs] = await Promise.all([
-          api.listApplications(),
-          api.listWorkflows(),
-        ]);
-        if (cancelled) return;
-        setApplications(apps.applications);
-        setWorkflows(wfs.workflows);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const applications = applicationsQuery.data ?? [];
+  const workflows = workflowsQuery.data ?? [];
+  const loading = applicationsQuery.isLoading || workflowsQuery.isLoading;
+  const error =
+    applicationsQuery.error?.message ?? workflowsQuery.error?.message ?? null;
 
   const draftCount = applications.filter((a) => a.status === "draft").length;
   const openCount = applications.filter((a) =>
@@ -81,8 +62,7 @@ export default function DashboardPage() {
 
       {error ? (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}. Make sure the API is running and{" "}
-          <code className="text-xs">NEXT_PUBLIC_API_URL</code> is set.
+          {error}
         </div>
       ) : null}
 

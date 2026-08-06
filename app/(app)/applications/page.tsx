@@ -1,26 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
-import type { Application, WorkflowSummary } from "@/lib/types";
+import { useApplications, useWorkflows } from "@/lib/hooks";
 import { STATUS_LABELS } from "@/lib/types";
 
 export default function ApplicationsPage() {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const applicationsQuery = useApplications();
+  const workflowsQuery = useWorkflows();
 
-  useEffect(() => {
-    Promise.all([api.listApplications(), api.listWorkflows()])
-      .then(([apps, wfs]) => {
-        setApplications(apps.applications);
-        setWorkflows(wfs.workflows);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const applications = applicationsQuery.data ?? [];
+  const workflows = workflowsQuery.data ?? [];
+  const loading = applicationsQuery.isLoading || workflowsQuery.isLoading;
+  const error =
+    applicationsQuery.error?.message ?? workflowsQuery.error?.message ?? null;
 
   return (
     <div className="space-y-6">
@@ -28,8 +22,14 @@ export default function ApplicationsPage() {
         <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">
           Applications
         </h1>
-        <Button render={<Link href="/applications/new" />}>New application</Button>
+        <Button render={<Link href="/applications/new" />}>
+          New application
+        </Button>
       </div>
+
+      {error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : null}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -19,19 +20,20 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await signIn(email, password);
+  const loginMutation = useMutation({
+    mutationFn: () => signIn(email, password),
+    onSuccess: () => {
       router.push("/dashboard");
-    } catch (err) {
+    },
+    onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    loginMutation.mutate();
   }
 
   return (
@@ -80,14 +82,21 @@ export default function LoginPage() {
               />
             </Field>
           </FieldGroup>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loginMutation.isPending}
+          >
+            {loginMutation.isPending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           No account?{" "}
-          <Link href="/signup" className="text-primary underline-offset-4 hover:underline">
+          <Link
+            href="/signup"
+            className="text-primary underline-offset-4 hover:underline"
+          >
             Create one
           </Link>
         </p>

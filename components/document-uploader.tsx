@@ -19,7 +19,7 @@ import {
   AttachmentTitle,
 } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { useUploadDocument } from "@/lib/hooks";
 import type { ApplicationDocument, WorkflowDocument } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -90,42 +90,36 @@ function SingleDocumentUpload({
   onUploaded: (doc: ApplicationDocument) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [state, setState] = useState<
-    "idle" | "uploading" | "done" | "error"
-  >(existing ? "done" : "idle");
-  const [progress, setProgress] = useState<string>("");
+  const upload = useUploadDocument(applicationId);
   const [local, setLocal] = useState<ApplicationDocument | undefined>(existing);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  async function handleFile(file: File) {
-    setState("uploading");
-    setProgress("Getting upload URL…");
-    try {
-      const { uploadUrl, document } = await api.createUploadUrl(applicationId, {
-        documentType: spec.id,
-        fileName: file.name,
-        contentType: file.type || "application/octet-stream",
-        size: file.size,
-        ownerKey,
-      });
+  const state = upload.isPending
+    ? "uploading"
+    : errorMessage
+      ? "error"
+      : local
+        ? "done"
+        : "idle";
 
-      setProgress("Uploading…");
-      const put = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!put.ok) throw new Error("Upload to storage failed");
-
-      const done: ApplicationDocument = { ...document, status: "uploaded" };
-      setLocal(done);
-      setState("done");
-      onUploaded(done);
-      toast.success(`${file.name} uploaded`);
-    } catch (err) {
-      setState("error");
-      setProgress(err instanceof Error ? err.message : "Upload failed");
-      toast.error("Upload failed");
-    }
+  function handleFile(file: File) {
+    setErrorMessage("");
+    upload.mutate(
+      { documentType: spec.id, file, ownerKey },
+      {
+        onSuccess: (done) => {
+          setLocal(done);
+          onUploaded(done);
+          toast.success(`${file.name} uploaded`);
+        },
+        onError: (err) => {
+          setErrorMessage(
+            err instanceof Error ? err.message : "Upload failed",
+          );
+          toast.error("Upload failed");
+        },
+      },
+    );
   }
 
   const attachmentState =
@@ -151,6 +145,7 @@ function SingleDocumentUpload({
             type="button"
             variant="outline"
             size="xs"
+            disabled={upload.isPending}
             onClick={() => inputRef.current?.click()}
           >
             <UploadIcon className="size-3" />
@@ -167,7 +162,7 @@ function SingleDocumentUpload({
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) void handleFile(file);
+          if (file) handleFile(file);
           e.target.value = "";
         }}
       />
@@ -183,9 +178,9 @@ function SingleDocumentUpload({
             </AttachmentTitle>
             <AttachmentDescription>
               {state === "uploading"
-                ? progress
+                ? "Uploading…"
                 : state === "error"
-                  ? progress || "Upload failed. Try again."
+                  ? errorMessage || "Upload failed. Try again."
                   : local
                     ? `${local.contentType.split("/").pop()?.toUpperCase()} · ${formatSize(local.size)}`
                     : "Ready to upload"}
@@ -203,10 +198,7 @@ function SingleDocumentUpload({
             {state === "error" ? (
               <AttachmentAction
                 aria-label="Dismiss error"
-                onClick={() => {
-                  setState(local ? "done" : "idle");
-                  setProgress("");
-                }}
+                onClick={() => setErrorMessage("")}
               >
                 <XIcon />
               </AttachmentAction>

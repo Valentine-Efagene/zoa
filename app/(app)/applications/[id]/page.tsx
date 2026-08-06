@@ -1,41 +1,33 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { ApplicationForm } from "@/components/application-form";
-import { api } from "@/lib/api";
-import type { Application, WorkflowDefinition } from "@/lib/types";
+import { useApplication } from "@/lib/hooks";
 
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
-  const [application, setApplication] = useState<Application | null>(null);
-  const [workflow, setWorkflow] = useState<WorkflowDefinition | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const query = useApplication(params.id);
 
-  useEffect(() => {
-    if (!params.id) return;
-    api
-      .getApplication(params.id)
-      .then((res) => {
-        setApplication(res.application);
-        setWorkflow(res.workflow);
-      })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load"),
-      );
-  }, [params.id]);
-
-  if (error) {
+  if (query.isError) {
     return (
-      <p className="text-sm text-destructive">{error}</p>
+      <p className="text-sm text-destructive">
+        {query.error instanceof Error
+          ? query.error.message
+          : "Failed to load"}
+      </p>
     );
   }
 
-  if (!application || !workflow) {
-    return <p className="text-sm text-muted-foreground">Loading application…</p>;
+  if (query.isLoading || !query.data) {
+    return (
+      <p className="text-sm text-muted-foreground">Loading application…</p>
+    );
   }
 
   return (
-    <ApplicationForm application={application} workflow={workflow} />
+    <ApplicationForm
+      application={query.data.application}
+      workflow={query.data.workflow}
+    />
   );
 }

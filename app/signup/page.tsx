@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,13 +22,10 @@ export default function SignupPage() {
   const [givenName, setGivenName] = useState("");
   const [familyName, setFamilyName] = useState("");
   const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function onRegister(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const result = await signUp({ email, password, givenName, familyName });
+  const registerMutation = useMutation({
+    mutationFn: () => signUp({ email, password, givenName, familyName }),
+    onSuccess: async (result) => {
       if (result.needsConfirmation) {
         setStep("confirm");
         toast.success("Check your email for a confirmation code");
@@ -35,26 +33,36 @@ export default function SignupPage() {
         await signIn(email, password);
         router.push("/dashboard");
       }
-    } catch (err) {
+    },
+    onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Sign up failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+  });
 
-  async function onConfirm(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
+  const confirmMutation = useMutation({
+    mutationFn: async () => {
       await confirmSignUp(email, code);
       await signIn(email, password);
+    },
+    onSuccess: () => {
       router.push("/dashboard");
-    } catch (err) {
+    },
+    onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Confirmation failed");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  function onRegister(e: React.FormEvent) {
+    e.preventDefault();
+    registerMutation.mutate();
   }
+
+  function onConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    confirmMutation.mutate();
+  }
+
+  const pending = registerMutation.isPending || confirmMutation.isPending;
 
   return (
     <div className="flex min-h-full flex-1 items-center justify-center px-4 py-16">
@@ -124,8 +132,8 @@ export default function SignupPage() {
                 />
               </Field>
             </FieldGroup>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating…" : "Create account"}
+            <Button type="submit" className="w-full" disabled={pending}>
+              {registerMutation.isPending ? "Creating…" : "Create account"}
             </Button>
           </form>
         ) : (
@@ -139,15 +147,20 @@ export default function SignupPage() {
                 onChange={(e) => setCode(e.target.value)}
               />
             </Field>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Confirming…" : "Confirm and continue"}
+            <Button type="submit" className="w-full" disabled={pending}>
+              {confirmMutation.isPending
+                ? "Confirming…"
+                : "Confirm and continue"}
             </Button>
           </form>
         )}
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already registered?{" "}
-          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+          <Link
+            href="/login"
+            className="text-primary underline-offset-4 hover:underline"
+          >
             Sign in
           </Link>
         </p>

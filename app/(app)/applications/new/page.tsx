@@ -1,38 +1,36 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, useTransition } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
-import type { WorkflowSlug, WorkflowSummary } from "@/lib/types";
+import { useCreateApplication, useWorkflows } from "@/lib/hooks";
+import type { WorkflowSlug } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function NewApplicationInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preset = searchParams.get("workflow") as WorkflowSlug | null;
-  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  const workflowsQuery = useWorkflows();
+  const createApplication = useCreateApplication();
   const [selected, setSelected] = useState<WorkflowSlug | null>(preset);
-  const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    api.listWorkflows().then((res) => {
-      setWorkflows(res.workflows);
-      if (preset) setSelected(preset);
-    });
-  }, [preset]);
+  const workflows = workflowsQuery.data ?? [];
 
   function start() {
     if (!selected) return;
-    startTransition(async () => {
-      try {
-        const { application } = await api.createApplication(selected);
-        router.push(`/applications/${application.id}`);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not start");
-      }
-    });
+    createApplication.mutate(
+      { workflowSlug: selected },
+      {
+        onSuccess: ({ application }) => {
+          router.push(`/applications/${application.id}`);
+        },
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Could not start");
+        },
+      },
+    );
   }
 
   return (
@@ -47,35 +45,49 @@ function NewApplicationInner() {
         </p>
       </div>
 
+      {workflowsQuery.error ? (
+        <p className="text-sm text-destructive">
+          {workflowsQuery.error.message}
+        </p>
+      ) : null}
+
       <div className="space-y-3">
-        {workflows.map((wf) => {
-          const active = selected === wf.slug;
-          return (
-            <button
-              key={wf.slug}
-              type="button"
-              onClick={() => setSelected(wf.slug)}
-              className={cn(
-                "w-full rounded-xl border px-5 py-4 text-left transition-colors",
-                active
-                  ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20"
-                  : "border-border/70 bg-background hover:border-primary/25",
-              )}
-            >
-              <p className="font-medium">{wf.name}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {wf.description}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {wf.estimatedDays}
-              </p>
-            </button>
-          );
-        })}
+        {workflowsQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading workflows…</p>
+        ) : (
+          workflows.map((wf) => {
+            const active = selected === wf.slug;
+            return (
+              <button
+                key={wf.slug}
+                type="button"
+                onClick={() => setSelected(wf.slug)}
+                className={cn(
+                  "w-full rounded-xl border px-5 py-4 text-left transition-colors",
+                  active
+                    ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20"
+                    : "border-border/70 bg-background hover:border-primary/25",
+                )}
+              >
+                <p className="font-medium">{wf.name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {wf.description}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {wf.estimatedDays}
+                </p>
+              </button>
+            );
+          })
+        )}
       </div>
 
-      <Button disabled={!selected || pending} onClick={start} size="lg">
-        {pending ? "Starting…" : "Continue to form"}
+      <Button
+        disabled={!selected || createApplication.isPending}
+        onClick={start}
+        size="lg"
+      >
+        {createApplication.isPending ? "Starting…" : "Continue to form"}
       </Button>
     </div>
   );

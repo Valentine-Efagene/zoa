@@ -8,9 +8,17 @@ import type {
   ApplicationDocument,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+function apiBaseUrl() {
+  const url = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set. Add it to .env.local and restart the dev server.",
+    );
+  }
+  return url;
+}
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
@@ -34,10 +42,18 @@ async function request<T>(
     }
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl()}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError(
+      "Failed to reach the API. Check NEXT_PUBLIC_API_URL and that CORS allows this origin.",
+      0,
+    );
+  }
 
   const data = (await res.json().catch(() => ({}))) as {
     error?: string;
@@ -100,5 +116,3 @@ export const api = {
       },
     ),
 };
-
-export { ApiError };

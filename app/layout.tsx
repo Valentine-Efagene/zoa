@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
+import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -31,10 +32,12 @@ export default function RootLayout({
       className={`${sans.variable} ${display.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <AuthProvider>
-          {children}
-          <Toaster position="top-center" />
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            {children}
+            <Toaster position="top-center" />
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );
