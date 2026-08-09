@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  DownloadIcon,
   FileIcon,
   FileTextIcon,
   ImageIcon,
@@ -19,6 +20,7 @@ import {
   AttachmentTitle,
 } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 import { useUploadDocument } from "@/lib/hooks";
 import type { ApplicationDocument, WorkflowDocument } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,8 @@ interface DocumentUploaderProps {
   ownerKey?: string;
   onUploaded: (doc: ApplicationDocument) => void;
   className?: string;
+  /** Admin review: download only (no upload/replace) */
+  downloadOnly?: boolean;
 }
 
 export function DocumentUploader({
@@ -52,6 +56,7 @@ export function DocumentUploader({
   ownerKey,
   onUploaded,
   className,
+  downloadOnly = false,
 }: DocumentUploaderProps) {
   return (
     <div className={cn("space-y-3", className)}>
@@ -69,6 +74,7 @@ export function DocumentUploader({
             existing={existing}
             ownerKey={ownerKey}
             onUploaded={onUploaded}
+            downloadOnly={downloadOnly}
           />
         );
       })}
@@ -82,17 +88,20 @@ function SingleDocumentUpload({
   existing,
   ownerKey,
   onUploaded,
+  downloadOnly,
 }: {
   applicationId: string;
   spec: WorkflowDocument;
   existing?: ApplicationDocument;
   ownerKey?: string;
   onUploaded: (doc: ApplicationDocument) => void;
+  downloadOnly: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocument(applicationId);
   const [local, setLocal] = useState<ApplicationDocument | undefined>(existing);
   const [errorMessage, setErrorMessage] = useState("");
+  const [downloading, setDownloading] = useState(false);
 
   const state = upload.isPending
     ? "uploading"
@@ -122,6 +131,24 @@ function SingleDocumentUpload({
     );
   }
 
+  async function handleDownload() {
+    if (!local?.id) return;
+    setDownloading(true);
+    try {
+      const { downloadUrl } = await api.createDownloadUrl(
+        applicationId,
+        local.id,
+      );
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not download file",
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   const attachmentState =
     state === "uploading"
       ? "uploading"
@@ -140,32 +167,48 @@ function SingleDocumentUpload({
             <span className="text-destructive"> *</span>
           ) : null}
         </p>
-        {!local ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            disabled={upload.isPending}
-            onClick={() => inputRef.current?.click()}
-          >
-            <UploadIcon className="size-3" />
-            Choose file
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {local && downloadOnly ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              disabled={downloading}
+              onClick={() => void handleDownload()}
+            >
+              <DownloadIcon className="size-3" />
+              {downloading ? "Preparing…" : "Download"}
+            </Button>
+          ) : null}
+          {!local && !downloadOnly ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              disabled={upload.isPending}
+              onClick={() => inputRef.current?.click()}
+            >
+              <UploadIcon className="size-3" />
+              Choose file
+            </Button>
+          ) : null}
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">{spec.description}</p>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept={spec.accept}
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFile(file);
-          e.target.value = "";
-        }}
-      />
+      {!downloadOnly ? (
+        <input
+          ref={inputRef}
+          type="file"
+          accept={spec.accept}
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            e.target.value = "";
+          }}
+        />
+      ) : null}
 
       {(local || state === "uploading" || state === "error") && (
         <Attachment state={attachmentState} className="w-full max-w-md">
@@ -187,12 +230,21 @@ function SingleDocumentUpload({
             </AttachmentDescription>
           </AttachmentContent>
           <AttachmentActions>
-            {local ? (
+            {local && !downloadOnly ? (
               <AttachmentAction
                 aria-label={`Replace ${local.fileName}`}
                 onClick={() => inputRef.current?.click()}
               >
                 <UploadIcon />
+              </AttachmentAction>
+            ) : null}
+            {local && downloadOnly ? (
+              <AttachmentAction
+                aria-label={`Download ${local.fileName}`}
+                disabled={downloading}
+                onClick={() => void handleDownload()}
+              >
+                <DownloadIcon />
               </AttachmentAction>
             ) : null}
             {state === "error" ? (
@@ -206,6 +258,10 @@ function SingleDocumentUpload({
           </AttachmentActions>
         </Attachment>
       )}
+
+      {downloadOnly && !local ? (
+        <p className="text-xs text-muted-foreground italic">Not uploaded</p>
+      ) : null}
     </div>
   );
 }

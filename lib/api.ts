@@ -152,6 +152,11 @@ export const api = {
       },
     ),
 
+  createDownloadUrl: (applicationId: string, documentId: string) =>
+    request<{ downloadUrl: string; document: ApplicationDocument }>(
+      `/applications/${applicationId}/documents/${documentId}/download-url`,
+    ),
+
   adminListApplications: (status?: string) => {
     const qs = status ? `?status=${encodeURIComponent(status)}` : "";
     return request<{ applications: Application[] }>(

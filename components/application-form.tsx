@@ -72,7 +72,6 @@ export function ApplicationForm({
     return map;
   });
 
-  // Keep local draft state in sync when the query refetches (e.g. after upload)
   useEffect(() => {
     setDocuments(initialApp.documents);
   }, [initialApp.documents]);
@@ -129,6 +128,8 @@ export function ApplicationForm({
   const readOnly =
     forceReadOnly || (status !== "draft" && status !== "needs_info");
   const pending = updateApplication.isPending;
+  /** Don't use disabled fieldset for admin — download/copy must stay clickable */
+  const lockEditing = readOnly || pending;
 
   return (
     <div className="space-y-8">
@@ -142,10 +143,10 @@ export function ApplicationForm({
             {workflow.description}
           </p>
         </div>
-          <Badge variant="secondary">{STATUS_LABELS[status]}</Badge>
-        </div>
+        <Badge variant="secondary">{STATUS_LABELS[status]}</Badge>
+      </div>
 
-      {initialApp.adminNote && status === "needs_info" ? (
+      {initialApp.adminNote && status === "needs_info" && !forceReadOnly ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
           <p className="font-medium text-amber-900 dark:text-amber-200">
             More information required
@@ -154,7 +155,7 @@ export function ApplicationForm({
         </div>
       ) : null}
 
-      <fieldset disabled={readOnly || pending} className="space-y-10">
+      <div className="space-y-10">
         <section className="space-y-4">
           <SectionHeader
             title="Organisation details"
@@ -177,6 +178,8 @@ export function ApplicationForm({
                   ? { chairmanTrusteeIndex: trusteeOptions }
                   : undefined
               }
+              showCopy={forceReadOnly}
+              readOnly={lockEditing}
             />
           </div>
         </section>
@@ -197,6 +200,9 @@ export function ApplicationForm({
               applicationId={initialApp.id}
               documents={documents}
               onDocumentUploaded={onDocumentUploaded}
+              showCopy={forceReadOnly}
+              readOnly={lockEditing}
+              downloadOnly={forceReadOnly}
             />
           </div>
         ))}
@@ -220,6 +226,9 @@ export function ApplicationForm({
               applicationId={initialApp.id}
               documents={documents}
               onDocumentUploaded={onDocumentUploaded}
+              showCopy={forceReadOnly}
+              readOnly={lockEditing}
+              downloadOnly={forceReadOnly}
             />
           </div>
         ))}
@@ -235,12 +244,13 @@ export function ApplicationForm({
                   docs={workflow.documents}
                   uploaded={documents}
                   onUploaded={onDocumentUploaded}
+                  downloadOnly={forceReadOnly}
                 />
               </div>
             </section>
           </div>
         ) : null}
-      </fieldset>
+      </div>
 
       {!readOnly ? (
         <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-border/60 bg-[var(--zoa-canvas)]/95 py-4 backdrop-blur-sm">
@@ -257,7 +267,9 @@ export function ApplicationForm({
             disabled={pending}
             onClick={() => save("submitted")}
           >
-            {status === "needs_info" ? "Resubmit application" : "Submit application"}
+            {status === "needs_info"
+              ? "Resubmit application"
+              : "Submit application"}
           </Button>
           <p className="text-xs text-muted-foreground">
             Typical turnaround: {workflow.estimatedDays}

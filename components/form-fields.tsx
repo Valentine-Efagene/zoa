@@ -1,6 +1,8 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -31,16 +33,61 @@ function emptyPerson(fields: WorkflowField[]): PersonRecord {
   return Object.fromEntries(fields.map((f) => [f.id, ""]));
 }
 
+async function copyText(value: string) {
+  if (!value) {
+    toast.message("Nothing to copy");
+    return false;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success("Copied");
+    return true;
+  } catch {
+    toast.error("Could not copy");
+    return false;
+  }
+}
+
+function CopyFieldButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className="shrink-0 text-muted-foreground hover:text-foreground"
+      aria-label="Copy value"
+      disabled={!value}
+      onClick={() => {
+        void copyText(value).then((ok) => {
+          if (!ok) return;
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+    >
+      {copied ? (
+        <CheckIcon className="size-3.5" />
+      ) : (
+        <CopyIcon className="size-3.5" />
+      )}
+    </Button>
+  );
+}
+
 export function FieldControl({
   field,
   value,
   onChange,
   optionsOverride,
+  readOnly,
 }: {
   field: WorkflowField;
   value: string;
   onChange: (v: string) => void;
   optionsOverride?: string[];
+  readOnly?: boolean;
 }) {
   const options = optionsOverride ?? field.options ?? [];
 
@@ -52,6 +99,7 @@ export function FieldControl({
         placeholder={field.placeholder}
         required={field.required}
         rows={4}
+        readOnly={readOnly}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -62,6 +110,7 @@ export function FieldControl({
       <Select
         value={value || null}
         onValueChange={(v) => onChange(v == null ? "" : String(v))}
+        disabled={readOnly}
       >
         <SelectTrigger className="w-full" id={field.id}>
           <SelectValue placeholder="Select…" />
@@ -90,6 +139,7 @@ export function FieldControl({
       value={value}
       placeholder={field.placeholder}
       required={field.required}
+      readOnly={readOnly}
       onChange={(e) => onChange(e.target.value)}
     />
   );
@@ -101,37 +151,48 @@ export function FieldsGrid({
   onChange,
   idPrefix,
   selectOptions,
+  showCopy = false,
+  readOnly = false,
 }: {
   fields: WorkflowField[];
   values: Record<string, string>;
   onChange: (id: string, value: string) => void;
   idPrefix?: string;
   selectOptions?: Record<string, string[]>;
+  showCopy?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {fields.map((field) => (
-        <Field
-          key={`${idPrefix ?? ""}${field.id}`}
-          className={cn(field.colSpan === 2 && "sm:col-span-2")}
-        >
-          <FieldLabel htmlFor={`${idPrefix ?? ""}${field.id}`}>
-            {field.label}
-            {field.required ? (
-              <span className="text-destructive"> *</span>
+      {fields.map((field) => {
+        const value = values[field.id] ?? "";
+        return (
+          <Field
+            key={`${idPrefix ?? ""}${field.id}`}
+            className={cn(field.colSpan === 2 && "sm:col-span-2")}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor={`${idPrefix ?? ""}${field.id}`}>
+                {field.label}
+                {field.required ? (
+                  <span className="text-destructive"> *</span>
+                ) : null}
+              </FieldLabel>
+              {showCopy ? <CopyFieldButton value={value} /> : null}
+            </div>
+            <FieldControl
+              field={{ ...field, id: `${idPrefix ?? ""}${field.id}` }}
+              value={value}
+              onChange={(v) => onChange(field.id, v)}
+              optionsOverride={selectOptions?.[field.id]}
+              readOnly={readOnly}
+            />
+            {field.helperText ? (
+              <FieldDescription>{field.helperText}</FieldDescription>
             ) : null}
-          </FieldLabel>
-          <FieldControl
-            field={{ ...field, id: `${idPrefix ?? ""}${field.id}` }}
-            value={values[field.id] ?? ""}
-            onChange={(v) => onChange(field.id, v)}
-            optionsOverride={selectOptions?.[field.id]}
-          />
-          {field.helperText ? (
-            <FieldDescription>{field.helperText}</FieldDescription>
-          ) : null}
-        </Field>
-      ))}
+          </Field>
+        );
+      })}
     </div>
   );
 }
@@ -143,6 +204,9 @@ export function RepeatableGroupEditor({
   applicationId,
   documents,
   onDocumentUploaded,
+  showCopy = false,
+  readOnly = false,
+  downloadOnly = false,
 }: {
   group: WorkflowGroup;
   items: PersonRecord[];
@@ -150,6 +214,9 @@ export function RepeatableGroupEditor({
   applicationId: string;
   documents: ApplicationDocument[];
   onDocumentUploaded: (doc: ApplicationDocument) => void;
+  showCopy?: boolean;
+  readOnly?: boolean;
+  downloadOnly?: boolean;
 }) {
   function updateItem(index: number, fieldId: string, value: string) {
     const next = items.map((item, i) =>
@@ -181,16 +248,18 @@ export function RepeatableGroupEditor({
             </p>
           ) : null}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addItem}
-          disabled={items.length >= group.maxItems}
-        >
-          <PlusIcon className="size-3.5" />
-          {group.addLabel}
-        </Button>
+        {!readOnly ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addItem}
+            disabled={items.length >= group.maxItems}
+          >
+            <PlusIcon className="size-3.5" />
+            {group.addLabel}
+          </Button>
+        ) : null}
       </div>
 
       {items.length === 0 ? (
@@ -198,15 +267,12 @@ export function RepeatableGroupEditor({
           <p className="text-sm text-muted-foreground">
             No {group.itemLabel.toLowerCase()}s yet.
           </p>
-          <Button
-            type="button"
-            className="mt-3"
-            size="sm"
-            onClick={addItem}
-          >
-            <PlusIcon className="size-3.5" />
-            {group.addLabel}
-          </Button>
+          {!readOnly ? (
+            <Button type="button" className="mt-3" size="sm" onClick={addItem}>
+              <PlusIcon className="size-3.5" />
+              {group.addLabel}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -225,17 +291,19 @@ export function RepeatableGroupEditor({
                   </span>
                 ) : null}
               </h3>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                className="text-muted-foreground hover:text-destructive"
-                disabled={items.length <= group.minItems}
-                onClick={() => removeItem(index)}
-              >
-                <Trash2Icon className="size-3.5" />
-                Remove
-              </Button>
+              {!readOnly ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="text-muted-foreground hover:text-destructive"
+                  disabled={items.length <= group.minItems}
+                  onClick={() => removeItem(index)}
+                >
+                  <Trash2Icon className="size-3.5" />
+                  Remove
+                </Button>
+              ) : null}
             </div>
 
             <FieldsGrid
@@ -243,6 +311,8 @@ export function RepeatableGroupEditor({
               values={item}
               idPrefix={`${group.id}-${index}-`}
               onChange={(fieldId, value) => updateItem(index, fieldId, value)}
+              showCopy={showCopy}
+              readOnly={readOnly}
             />
 
             {group.documents && group.documents.length > 0 ? (
@@ -256,6 +326,7 @@ export function RepeatableGroupEditor({
                   uploaded={documents}
                   ownerKey={`${group.id}:${index}`}
                   onUploaded={onDocumentUploaded}
+                  downloadOnly={downloadOnly}
                 />
               </div>
             ) : null}
@@ -275,6 +346,9 @@ export function SingularEditor({
   applicationId,
   documents,
   onDocumentUploaded,
+  showCopy = false,
+  readOnly = false,
+  downloadOnly = false,
 }: {
   singular: WorkflowSingular;
   value: PersonRecord | null;
@@ -284,6 +358,9 @@ export function SingularEditor({
   applicationId: string;
   documents: ApplicationDocument[];
   onDocumentUploaded: (doc: ApplicationDocument) => void;
+  showCopy?: boolean;
+  readOnly?: boolean;
+  downloadOnly?: boolean;
 }) {
   return (
     <section className="space-y-4">
@@ -298,7 +375,7 @@ export function SingularEditor({
         ) : null}
       </div>
 
-      {singular.optional ? (
+      {singular.optional && !readOnly ? (
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -320,9 +397,9 @@ export function SingularEditor({
             fields={singular.fields}
             values={value}
             idPrefix={`${singular.id}-`}
-            onChange={(fieldId, v) =>
-              onChange({ ...value, [fieldId]: v })
-            }
+            onChange={(fieldId, v) => onChange({ ...value, [fieldId]: v })}
+            showCopy={showCopy}
+            readOnly={readOnly}
           />
           {singular.documents && singular.documents.length > 0 ? (
             <div className="mt-5 border-t border-border/70 pt-4">
@@ -332,10 +409,13 @@ export function SingularEditor({
                 uploaded={documents}
                 ownerKey={singular.id}
                 onUploaded={onDocumentUploaded}
+                downloadOnly={downloadOnly}
               />
             </div>
           ) : null}
         </div>
+      ) : singular.optional && readOnly && !enabled ? (
+        <p className="text-sm text-muted-foreground italic">Not provided</p>
       ) : null}
     </section>
   );
