@@ -1,6 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Building2, FileCheck2, Landmark, Users } from "lucide-react";
-import { BrandLogo, ZoMark } from "@/components/brand-logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 
 const services = [
@@ -47,34 +48,43 @@ const steps = [
 export default function HomePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      {/* Hero — one composition, brand-first, full-bleed atmosphere */}
-      <section className="relative flex min-h-[100dvh] flex-col overflow-hidden">
+      {/* Hero — photo + deep brand veil for contrast */}
+      <section className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#0a2f5c]">
+        <Image
+          src="/hero/registration-consult.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[72%_center] zoa-hero-kenburns"
+          aria-hidden
+        />
+        {/* Dual-axis brand veil: strong left for copy, photo readable on the right */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
-            background:
-              "linear-gradient(145deg, #0a2f5c 0%, #13458b 38%, #1a5aad 68%, color-mix(in srgb, #ff9933 28%, #13458b) 100%)",
+            background: `
+              linear-gradient(
+                105deg,
+                rgba(8, 32, 64, 0.94) 0%,
+                rgba(10, 47, 92, 0.88) 34%,
+                rgba(19, 69, 139, 0.62) 58%,
+                rgba(19, 69, 139, 0.38) 78%,
+                rgba(10, 47, 92, 0.45) 100%
+              ),
+              linear-gradient(
+                to top,
+                rgba(8, 32, 64, 0.55) 0%,
+                transparent 42%
+              )
+            `,
           }}
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-        <div
-          aria-hidden
-          className="zoa-glow pointer-events-none absolute -right-32 top-[18%] size-[32rem] rounded-full opacity-45 blur-3xl"
+          className="pointer-events-none absolute -right-24 top-1/4 size-[28rem] rounded-full opacity-25 blur-3xl"
           style={{ background: "#ff9933" }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-24 bottom-[-10%] size-[24rem] rounded-full opacity-25 blur-3xl"
-          style={{ background: "#ffffff" }}
         />
 
         <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
@@ -90,7 +100,7 @@ export default function HomePage() {
               Sign in
             </Button>
             <Button
-              className="bg-[var(--zoa-orange)] text-[#13458b] hover:bg-[#ffad57]"
+              className="bg-[var(--zoa-orange)] text-[#0a2f5c] hover:bg-[#ffad57]"
               render={<Link href="/signup" />}
             >
               Get started
@@ -99,60 +109,52 @@ export default function HomePage() {
         </header>
 
         <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-6 pb-24 pt-6">
-          <div className="flex flex-col gap-12 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl zoa-rise">
-              <h1 className="font-[family-name:var(--font-display)] text-[clamp(3.5rem,12vw,7.5rem)] leading-[0.9] font-semibold tracking-tight text-white">
-                Z.O.A
-              </h1>
-              <p className="mt-6 max-w-md text-lg leading-relaxed text-white/80 zoa-rise-delay sm:text-xl">
-                Guided CAC filings for companies, business names, and SCUML —
-                people, papers, and progress in one place.
-              </p>
-              <div className="mt-9 flex flex-wrap gap-3 zoa-rise-delay-2">
-                <Button
-                  size="lg"
-                  className="bg-[var(--zoa-orange)] text-[#13458b] hover:bg-[#ffad57]"
-                  render={<Link href="/signup" />}
-                >
-                  Start filing
-                  <ArrowRight className="size-4" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-white/35 bg-transparent text-white hover:bg-white/10 hover:text-white"
-                  render={<Link href="/login" />}
-                >
-                  Sign in
-                </Button>
-              </div>
-            </div>
-
-            <div
-              className="flex justify-start lg:justify-end zoa-mark-in"
-              aria-hidden
-            >
-              <ZoMark className="zoa-float size-36 text-[var(--zoa-orange)] sm:size-48 lg:size-56" />
+          <div className="max-w-lg zoa-rise">
+            <h1 className="font-[family-name:var(--font-display)] text-[clamp(3.25rem,11vw,6.75rem)] leading-[0.9] font-semibold tracking-tight text-[var(--zoa-orange)]">
+              Z.O.A
+            </h1>
+            <p className="mt-6 text-lg leading-relaxed text-white/90 zoa-rise-delay sm:text-xl">
+              Lawyer-led help registering your company, business name, or SCUML
+              filing — guided forms, documents, and progress in one place.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3 zoa-rise-delay-2">
+              <Button
+                size="lg"
+                className="bg-[var(--zoa-orange)] text-[#0a2f5c] shadow-md hover:bg-[#ffad57]"
+                render={<Link href="/signup" />}
+              >
+                Start filing
+                <ArrowRight className="size-4" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                render={<Link href="/login" />}
+              >
+                Sign in
+              </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Services */}
-      <section className="relative border-t border-[var(--zoa-blue)]/10 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      {/* Services — ruled document grid */}
+      <section className="relative border-t border-[var(--zoa-blue)]/15 zoa-pattern-documents">
+        <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-24">
           <p className="text-sm font-medium tracking-[0.18em] text-[var(--zoa-orange)] uppercase">
             What we file
           </p>
           <h2 className="mt-3 max-w-xl font-[family-name:var(--font-display)] text-3xl tracking-tight text-[var(--zoa-blue)] sm:text-4xl">
-            Corporate registrations, end to end
+            Legal help to get your business registered
           </h2>
           <p className="mt-4 max-w-lg text-muted-foreground">
-            Z.O.A Corporate Service Limited walks you through each filing so
-            nothing gets lost between forms, people, and documents.
+            Z.O.A Corporate Service Limited — lawyer-guided CAC filings so
+            founders get company, business name, and SCUML applications done
+            without the paperwork maze.
           </p>
 
-          <ul className="mt-14 divide-y divide-border/80 border-y border-border/80">
+          <ul className="mt-14 divide-y divide-[var(--zoa-blue)]/12 border-y border-[var(--zoa-blue)]/12">
             {services.map((service) => (
               <li
                 key={service.title}
@@ -177,16 +179,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="relative bg-[var(--zoa-canvas)]">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-80"
-          style={{
-            background:
-              "radial-gradient(ellipse 60% 50% at 100% 0%, color-mix(in srgb, var(--zoa-orange) 12%, transparent), transparent 55%)",
-          }}
-        />
+      {/* How it works — seal / notary motif */}
+      <section className="relative zoa-pattern-seal">
         <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-24">
           <p className="text-sm font-medium tracking-[0.18em] text-[var(--zoa-orange)] uppercase">
             How it works
@@ -211,9 +205,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Multi-person callout */}
-      <section className="border-y border-border/70 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-16 sm:flex-row sm:items-center sm:justify-between sm:py-20">
+      {/* Multi-person — folio / document icon pattern */}
+      <section className="relative border-y border-[var(--zoa-blue)]/12 zoa-pattern-folio">
+        <div className="relative mx-auto flex max-w-6xl flex-col gap-8 px-6 py-16 sm:flex-row sm:items-center sm:justify-between sm:py-20">
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 text-[var(--zoa-blue)]">
               <Users className="size-5" strokeWidth={1.5} aria-hidden />
@@ -240,25 +234,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Closing CTA */}
-      <section className="relative overflow-hidden bg-[var(--zoa-blue)]">
-        <div
-          aria-hidden
-          className="zoa-glow pointer-events-none absolute -left-20 top-1/2 size-72 -translate-y-1/2 rounded-full opacity-40 blur-3xl"
-          style={{ background: "#ff9933" }}
-        />
+      {/* Closing CTA — column motif on brand blue */}
+      <section className="relative overflow-hidden zoa-pattern-columns">
         <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-24">
           <h2 className="max-w-lg font-[family-name:var(--font-display)] text-3xl tracking-tight text-white sm:text-5xl">
             Ready when your next filing is
           </h2>
-          <p className="mt-4 max-w-md text-white/75">
+          <p className="mt-4 max-w-md text-white/80">
             Create an account, start a draft, and move through CAC requirements
             without the spreadsheet scramble.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button
               size="lg"
-              className="bg-[var(--zoa-orange)] text-[#13458b] hover:bg-[#ffad57]"
+              className="bg-[var(--zoa-orange)] text-[#0a2f5c] hover:bg-[#ffad57]"
               render={<Link href="/signup" />}
             >
               Get started
@@ -266,7 +255,7 @@ export default function HomePage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-white/35 bg-transparent text-white hover:bg-white/10 hover:text-white"
+              className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
               render={<Link href="/login" />}
             >
               I already have an account
@@ -275,7 +264,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t border-border/70 bg-white">
+      <footer className="border-t border-[var(--zoa-blue)]/12 bg-[var(--zoa-canvas)]">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <BrandLogo showTagline />
