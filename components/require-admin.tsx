@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { PageSpinner } from "@/components/loading";
 
 export function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -20,11 +21,7 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
   }, [loading, session, router]);
 
   if (loading || !session?.isAdmin) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
-        Checking access…
-      </div>
-    );
+    return <PageSpinner label="Checking access" />;
   }
 
   return <>{children}</>;

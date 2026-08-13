@@ -4,6 +4,11 @@ import Link from "next/link";
 import { ArrowRight, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ListSkeleton,
+  StatSkeleton,
+} from "@/components/loading";
 import {
   useApplications,
   useWorkflows,
@@ -43,21 +48,23 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { label: "Total applications", value: applications.length },
-          { label: "Drafts", value: draftCount },
-          { label: "In progress", value: openCount },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-border/70 bg-background/80 px-4 py-4"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-tight">
-              {loading ? "—" : stat.value}
-            </p>
-          </div>
-        ))}
+        {loading
+          ? Array.from({ length: 3 }, (_, i) => <StatSkeleton key={i} />)
+          : [
+              { label: "Total applications", value: applications.length },
+              { label: "Drafts", value: draftCount },
+              { label: "In progress", value: openCount },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-border/70 bg-background/80 px-4 py-4"
+              >
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                <p className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-tight">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
       </div>
 
       {error ? (
@@ -78,7 +85,7 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <ListSkeleton rows={4} />
         ) : applications.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-background/50 px-6 py-12 text-center">
             <FileText className="mx-auto size-8 text-muted-foreground/60" />
@@ -120,25 +127,41 @@ export default function DashboardPage() {
         <h2 className="font-[family-name:var(--font-display)] text-xl tracking-tight">
           Available workflows
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {workflows.map((wf) => (
-            <Link
-              key={wf.slug}
-              href={`/applications/new?workflow=${wf.slug}`}
-              className="group rounded-xl border border-border/70 bg-background p-5 transition-colors hover:border-primary/30 hover:bg-primary/[0.03]"
-            >
-              <h3 className="font-medium group-hover:text-primary">
-                {wf.name}
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                {wf.description}
-              </p>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Typical turnaround: {wf.estimatedDays}
-              </p>
-            </Link>
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2" aria-hidden>
+            {Array.from({ length: 4 }, (_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-border/70 bg-background p-5"
+              >
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="mt-2 h-4 w-full" />
+                <Skeleton className="mt-1 h-4 w-2/3" />
+                <Skeleton className="mt-4 h-3 w-28" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {workflows.map((wf) => (
+              <Link
+                key={wf.slug}
+                href={`/applications/new?workflow=${wf.slug}`}
+                className="group rounded-xl border border-border/70 bg-background p-5 transition-colors hover:border-primary/30 hover:bg-primary/[0.03]"
+              >
+                <h3 className="font-medium group-hover:text-primary">
+                  {wf.name}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                  {wf.description}
+                </p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Typical turnaround: {wf.estimatedDays}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

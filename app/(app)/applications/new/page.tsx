@@ -4,6 +4,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  PageSpinner,
+  WorkflowOptionSkeleton,
+} from "@/components/loading";
 import { useCreateApplication, useWorkflows } from "@/lib/hooks";
 import type { WorkflowSlug } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -53,7 +58,7 @@ function NewApplicationInner() {
 
       <div className="space-y-3">
         {workflowsQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading workflows…</p>
+          <WorkflowOptionSkeleton count={3} />
         ) : (
           workflows.map((wf) => {
             const active = selected === wf.slug;
@@ -87,7 +92,14 @@ function NewApplicationInner() {
         onClick={start}
         size="lg"
       >
-        {createApplication.isPending ? "Starting…" : "Continue to form"}
+        {createApplication.isPending ? (
+          <>
+            <Spinner className="size-4" />
+            Starting…
+          </>
+        ) : (
+          "Continue to form"
+        )}
       </Button>
     </div>
   );
@@ -95,11 +107,7 @@ function NewApplicationInner() {
 
 export default function NewApplicationPage() {
   return (
-    <Suspense
-      fallback={
-        <p className="text-sm text-muted-foreground">Loading workflows…</p>
-      }
-    >
+    <Suspense fallback={<PageSpinner label="Loading workflows" />}>
       <NewApplicationInner />
     </Suspense>
   );

@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -13,6 +14,8 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { PageSpinner } from "@/components/loading";
 import { isCognitoConfigured } from "@/lib/auth";
 
 function LoginForm() {
@@ -48,11 +51,8 @@ function LoginForm() {
   return (
     <div className="flex min-h-full flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
-        <Link
-          href="/"
-          className="font-[family-name:var(--font-display)] text-2xl tracking-tight"
-        >
-          Zoa
+        <Link href="/" className="inline-flex">
+          <BrandLogo showTagline />
         </Link>
         <h1 className="mt-8 font-[family-name:var(--font-display)] text-3xl tracking-tight">
           Sign in
@@ -96,7 +96,14 @@ function LoginForm() {
             className="w-full"
             disabled={loginMutation.isPending}
           >
-            {loginMutation.isPending ? "Signing in…" : "Sign in"}
+            {loginMutation.isPending ? (
+              <>
+                <Spinner className="size-4" />
+                Signing in…
+              </>
+            ) : (
+              "Sign in"
+            )}
           </Button>
         </form>
 
@@ -116,13 +123,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-full flex-1 items-center justify-center text-sm text-muted-foreground">
-          Loading…
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSpinner label="Loading sign in" />}>
       <LoginForm />
     </Suspense>
   );

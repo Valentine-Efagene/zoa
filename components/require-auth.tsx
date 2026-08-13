@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { PageSpinner } from "@/components/loading";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -24,11 +25,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }, [loading, session, router, pathname]);
 
   if (loading || !session) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
-        Redirecting…
-      </div>
-    );
+    return <PageSpinner label="Checking session" />;
   }
 
   return <>{children}</>;

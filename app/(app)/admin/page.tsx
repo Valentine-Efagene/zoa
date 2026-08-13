@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RequireAdmin } from "@/components/require-admin";
+import { ListSkeleton } from "@/components/loading";
 import { useAdminApplications, useWorkflows } from "@/lib/hooks";
 import type { ApplicationStatus } from "@/lib/types";
 import { STATUS_LABELS } from "@/lib/types";
@@ -69,7 +70,7 @@ function AdminInbox() {
       ) : null}
 
       {appsQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading inbox…</p>
+        <ListSkeleton rows={6} />
       ) : applications.length === 0 ? (
         <p className="text-sm text-muted-foreground">No applications match.</p>
       ) : (

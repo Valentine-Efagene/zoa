@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-zoa-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-heading: var(--font-zoa-display), ui-serif, Georgia, serif;
+  --font-heading: var(--font-zoa-display), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,42 +48,43 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Forest / ink palette — professional filings product, not AI-purple */
+/* Z.O.A brand — Teal Blue #13458B, Vivid Orange #FF9933 */
 :root {
-  --zoa-canvas: oklch(0.97 0.012 145);
-  --zoa-accent: oklch(0.38 0.07 155);
-  --background: oklch(0.995 0.004 145);
-  --foreground: oklch(0.22 0.02 155);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.02 155);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.02 155);
-  --primary: oklch(0.34 0.07 155);
-  --primary-foreground: oklch(0.98 0.01 145);
-  --secondary: oklch(0.94 0.015 145);
-  --secondary-foreground: oklch(0.28 0.03 155);
-  --muted: oklch(0.95 0.01 145);
-  --muted-foreground: oklch(0.48 0.02 155);
-  --accent: oklch(0.93 0.025 145);
-  --accent-foreground: oklch(0.28 0.04 155);
-  --destructive: oklch(0.55 0.2 25);
-  --border: oklch(0.88 0.015 145);
-  --input: oklch(0.9 0.012 145);
-  --ring: oklch(0.45 0.06 155);
-  --chart-1: oklch(0.5 0.08 155);
-  --chart-2: oklch(0.65 0.06 100);
-  --chart-3: oklch(0.55 0.04 220);
-  --chart-4: oklch(0.7 0.05 80);
-  --chart-5: oklch(0.4 0.05 155);
+  --zoa-blue: #13458b;
+  --zoa-orange: #ff9933;
+  --zoa-canvas: #f3f6fb;
+  --background: #ffffff;
+  --foreground: #0a1628;
+  --card: #ffffff;
+  --card-foreground: #0a1628;
+  --popover: #ffffff;
+  --popover-foreground: #0a1628;
+  --primary: #13458b;
+  --primary-foreground: #ffffff;
+  --secondary: #e8eef7;
+  --secondary-foreground: #13458b;
+  --muted: #eef2f8;
+  --muted-foreground: #5a6b82;
+  --accent: #fff3e6;
+  --accent-foreground: #13458b;
+  --destructive: #c62828;
+  --border: #d5deeb;
+  --input: #d5deeb;
+  --ring: #13458b;
+  --chart-1: #13458b;
+  --chart-2: #ff9933;
+  --chart-3: #2a6bb5;
+  --chart-4: #f0b060;
+  --chart-5: #0a2f5c;
   --radius: 0.625rem;
-  --sidebar: oklch(0.98 0.01 145);
-  --sidebar-foreground: oklch(0.22 0.02 155);
-  --sidebar-primary: oklch(0.34 0.07 155);
-  --sidebar-primary-foreground: oklch(0.98 0.01 145);
-  --sidebar-accent: oklch(0.94 0.015 145);
-  --sidebar-accent-foreground: oklch(0.28 0.03 155);
-  --sidebar-border: oklch(0.88 0.015 145);
-  --sidebar-ring: oklch(0.45 0.06 155);
+  --sidebar: #f3f6fb;
+  --sidebar-foreground: #0a1628;
+  --sidebar-primary: #13458b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8eef7;
+  --sidebar-accent-foreground: #13458b;
+  --sidebar-border: #d5deeb;
+  --sidebar-ring: #13458b;
   --font-display: var(--font-zoa-display);
 }
 
@@ -93,20 +94,106 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-color: var(--zoa-canvas);
     background-image:
       radial-gradient(
-        ellipse 80% 50% at 10% -10%,
-        oklch(0.9 0.04 145 / 0.55),
-        transparent
+        ellipse 90% 55% at 0% -5%,
+        color-mix(in srgb, var(--zoa-blue) 18%, transparent),
+        transparent 55%
       ),
       radial-gradient(
-        ellipse 60% 40% at 100% 0%,
-        oklch(0.92 0.03 100 / 0.35),
-        transparent
+        ellipse 70% 45% at 100% 0%,
+        color-mix(in srgb, var(--zoa-orange) 16%, transparent),
+        transparent 50%
+      ),
+      linear-gradient(
+        165deg,
+        #ffffff 0%,
+        var(--zoa-canvas) 45%,
+        color-mix(in srgb, var(--zoa-blue) 6%, #ffffff) 100%
       );
     background-attachment: fixed;
   }
   html {
     @apply font-sans;
+  }
+}
+
+@keyframes zoa-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoa-mark-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.zoa-rise {
+  animation: zoa-rise 0.7s ease-out both;
+}
+
+.zoa-rise-delay {
+  animation: zoa-rise 0.7s ease-out 0.12s both;
+}
+
+.zoa-rise-delay-2 {
+  animation: zoa-rise 0.7s ease-out 0.22s both;
+}
+
+.zoa-mark-in {
+  animation: zoa-mark-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+@keyframes zoa-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes zoa-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.04);
+  }
+}
+
+.zoa-float {
+  animation: zoa-float 5.5s ease-in-out infinite;
+}
+
+.zoa-glow {
+  animation: zoa-glow-pulse 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoa-rise,
+  .zoa-rise-delay,
+  .zoa-rise-delay-2,
+  .zoa-mark-in,
+  .zoa-float,
+  .zoa-glow {
+    animation: none;
   }
 }

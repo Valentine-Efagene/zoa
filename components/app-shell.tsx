@@ -10,6 +10,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { BrandLogo } from "@/components/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,9 +40,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-8">
             <Link
               href={isAdmin && pathname.startsWith("/admin") ? "/admin" : "/dashboard"}
-              className="font-[family-name:var(--font-display)] text-xl tracking-tight text-foreground"
+              className="inline-flex"
             >
-              Zoa
+              <BrandLogo />
             </Link>
             <nav className="hidden items-center gap-1 sm:flex">
               {links.map((link) => {

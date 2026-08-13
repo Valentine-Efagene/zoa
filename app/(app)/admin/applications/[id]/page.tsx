@@ -6,8 +6,10 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { RequireAdmin } from "@/components/require-admin";
 import { ApplicationForm } from "@/components/application-form";
+import { FormPageSkeleton } from "@/components/loading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
   Select,
@@ -74,9 +76,7 @@ function AdminApplicationDetail() {
   }
 
   if (query.isLoading || !app || !workflow) {
-    return (
-      <p className="text-sm text-muted-foreground">Loading application…</p>
-    );
+    return <FormPageSkeleton />;
   }
 
   return (
@@ -142,7 +142,14 @@ function AdminApplicationDetail() {
           </Field>
         </div>
         <Button type="button" disabled={update.isPending} onClick={saveStatus}>
-          {update.isPending ? "Saving…" : "Update status"}
+          {update.isPending ? (
+            <>
+              <Spinner className="size-4" />
+              Saving…
+            </>
+          ) : (
+            "Update status"
+          )}
         </Button>
       </section>
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -12,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { confirmSignUp, isCognitoConfigured, signIn, signUp } from "@/lib/auth";
 
 export default function SignupPage() {
@@ -67,11 +69,8 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-full flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
-        <Link
-          href="/"
-          className="font-[family-name:var(--font-display)] text-2xl tracking-tight"
-        >
-          Zoa
+        <Link href="/" className="inline-flex">
+          <BrandLogo showTagline />
         </Link>
         <h1 className="mt-8 font-[family-name:var(--font-display)] text-3xl tracking-tight">
           {step === "register" ? "Create account" : "Confirm email"}
@@ -133,7 +132,14 @@ export default function SignupPage() {
               </Field>
             </FieldGroup>
             <Button type="submit" className="w-full" disabled={pending}>
-              {registerMutation.isPending ? "Creating…" : "Create account"}
+              {registerMutation.isPending ? (
+                <>
+                  <Spinner className="size-4" />
+                  Creating…
+                </>
+              ) : (
+                "Create account"
+              )}
             </Button>
           </form>
         ) : (
@@ -148,9 +154,14 @@ export default function SignupPage() {
               />
             </Field>
             <Button type="submit" className="w-full" disabled={pending}>
-              {confirmMutation.isPending
-                ? "Confirming…"
-                : "Confirm and continue"}
+              {confirmMutation.isPending ? (
+                <>
+                  <Spinner className="size-4" />
+                  Confirming…
+                </>
+              ) : (
+                "Confirm and continue"
+              )}
             </Button>
           </form>
         )}

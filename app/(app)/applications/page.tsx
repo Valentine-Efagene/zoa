@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/loading";
 import { useApplications, useWorkflows } from "@/lib/hooks";
 import { STATUS_LABELS } from "@/lib/types";
 
@@ -32,7 +33,7 @@ export default function ApplicationsPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={6} />
       ) : applications.length === 0 ? (
         <p className="text-sm text-muted-foreground">No applications yet.</p>
       ) : (
