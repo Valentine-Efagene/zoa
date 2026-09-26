@@ -67,7 +67,9 @@ export function ApplicationForm({
   >(() => {
     const map: Record<string, boolean> = {};
     for (const s of workflow.singulars ?? []) {
-      map[s.id] = Boolean(initialApp.formData[s.id]);
+      map[s.id] = s.optional
+        ? Boolean(initialApp.formData[s.id])
+        : true;
     }
     return map;
   });
