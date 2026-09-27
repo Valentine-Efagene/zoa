@@ -120,6 +120,24 @@ export function isCognitoConfigured() {
   return Boolean(poolId && clientId);
 }
 
+/** UAT / local: password reset emails via Mailpit (see MOCK_AUTH_EMAIL). */
+export function isMockAuthEmailEnabled() {
+  return process.env.NEXT_PUBLIC_MOCK_AUTH_EMAIL === "true";
+}
+
+async function mockAuthPost(path: string, body: Record<string, string>) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json()) as { error?: string; ok?: boolean };
+  if (!res.ok) {
+    throw new Error(data.error ?? "Request failed");
+  }
+  return data;
+}
+
 async function cognitoRequest(
   target: string,
   body: Record<string, unknown>,
@@ -311,6 +329,12 @@ export async function signUp(input: {
   familyName: string;
 }) {
   if (!isCognitoConfigured()) {
+    if (isMockAuthEmailEnabled()) {
+      await mockAuthPost("/api/auth/mock/register", {
+        email: input.email,
+        password: input.password,
+      });
+    }
     saveSession({
       idToken: "dev-token",
       accessToken: "dev-token",
@@ -352,6 +376,19 @@ export async function signIn(email: string, password: string) {
     // Prefix admin@ or use password "admin" locally → admin mock
     const isAdmin =
       email.toLowerCase().startsWith("admin") || password === "admin";
+
+    if (isMockAuthEmailEnabled() && !isAdmin) {
+      const res = await fetch("/api/auth/mock/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await res.json()) as { ok?: boolean };
+      if (!data.ok) {
+        throw new Error("Incorrect email or password");
+      }
+    }
+
     saveSession({
       idToken: isAdmin ? "dev-admin-token" : "dev-token",
       accessToken: isAdmin ? "dev-admin-token" : "dev-token",
@@ -394,4 +431,44 @@ export async function signIn(email: string, password: string) {
 
 export function signOut() {
   clearSession();
+}
+
+export async function forgotPassword(email: string) {
+  if (!isCognitoConfigured()) {
+    if (!isMockAuthEmailEnabled()) {
+      throw new Error("Password reset is not available in local mock mode");
+    }
+    await mockAuthPost("/api/auth/mock/forgot-password", { email });
+    return;
+  }
+
+  await cognitoRequest("ForgotPassword", {
+    ClientId: clientId,
+    Username: email,
+  });
+}
+
+export async function confirmForgotPassword(
+  email: string,
+  code: string,
+  newPassword: string,
+) {
+  if (!isCognitoConfigured()) {
+    if (!isMockAuthEmailEnabled()) {
+      throw new Error("Password reset is not available in local mock mode");
+    }
+    await mockAuthPost("/api/auth/mock/confirm-forgot-password", {
+      email,
+      code,
+      password: newPassword,
+    });
+    return;
+  }
+
+  await cognitoRequest("ConfirmForgotPassword", {
+    ClientId: clientId,
+    Username: email,
+    ConfirmationCode: code,
+    Password: newPassword,
+  });
 }

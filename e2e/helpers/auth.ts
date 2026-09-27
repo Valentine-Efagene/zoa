@@ -5,6 +5,15 @@ export async function signInViaUi(
   email = "uat@zoa.test",
   password = "password",
 ) {
+  const register = await page.request.post("/api/auth/mock/register", {
+    data: { email, password },
+  });
+  if (register.status() === 404) {
+    // Mock auth email disabled — legacy mock accepts any password
+  } else if (!register.ok()) {
+    throw new Error(`Failed to seed mock user: ${register.status()}`);
+  }
+
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   await page.getByLabel("Email").fill(email);
