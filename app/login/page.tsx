@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { PageSpinner } from "@/components/loading";
-import { isCognitoConfigured } from "@/lib/auth";
+import { isCognitoConfigured, UserNotConfirmedError } from "@/lib/auth";
 
 function LoginForm() {
   const { signIn } = useAuth();
@@ -39,6 +39,15 @@ function LoginForm() {
       router.push(from && from.startsWith("/") ? from : "/dashboard");
     },
     onError: (err) => {
+      if (err instanceof UserNotConfirmedError) {
+        toast.error(err.message);
+        const params = new URLSearchParams({
+          confirm: "1",
+          email: err.email || email,
+        });
+        router.push(`/signup?${params.toString()}`);
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     },
   });
@@ -123,6 +132,22 @@ function LoginForm() {
           >
             Create one
           </Link>
+          {isCognitoConfigured() ? (
+            <>
+              {" "}
+              ·{" "}
+              <Link
+                href={
+                  email
+                    ? `/signup?confirm=1&email=${encodeURIComponent(email)}`
+                    : "/signup?confirm=1"
+                }
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Confirm email
+              </Link>
+            </>
+          ) : null}
         </p>
       </div>
     </div>

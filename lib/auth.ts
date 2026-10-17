@@ -138,6 +138,28 @@ async function mockAuthPost(path: string, body: Record<string, string>) {
   return data;
 }
 
+export class UserNotConfirmedError extends Error {
+  readonly email: string;
+
+  constructor(email: string) {
+    super(
+      "Your email is not confirmed yet. Enter the code we sent you, or resend a new code.",
+    );
+    this.name = "UserNotConfirmedError";
+    this.email = email;
+  }
+}
+
+function usernameFromCognitoBody(body: Record<string, unknown>): string {
+  if (typeof body.Username === "string") return body.Username;
+  const params = body.AuthParameters;
+  if (params && typeof params === "object" && "USERNAME" in params) {
+    const username = (params as { USERNAME?: unknown }).USERNAME;
+    if (typeof username === "string") return username;
+  }
+  return "";
+}
+
 async function cognitoRequest(
   target: string,
   body: Record<string, unknown>,
@@ -152,12 +174,14 @@ async function cognitoRequest(
   });
   const data = (await res.json()) as Record<string, unknown>;
   if (!res.ok) {
+    const type = typeof data.__type === "string" ? data.__type : "";
+    if (type.includes("UserNotConfirmedException")) {
+      throw new UserNotConfirmedError(usernameFromCognitoBody(body));
+    }
     const msg =
       typeof data.message === "string"
         ? data.message
-        : typeof data.__type === "string"
-          ? data.__type
-          : "Cognito request failed";
+        : type || "Cognito request failed";
     throw new Error(msg);
   }
   return data;
@@ -368,6 +392,16 @@ export async function confirmSignUp(email: string, code: string) {
     ClientId: clientId,
     Username: email,
     ConfirmationCode: code,
+  });
+}
+
+export async function resendConfirmationCode(email: string) {
+  if (!isCognitoConfigured()) {
+    throw new Error("Email confirmation is not required in local mock mode");
+  }
+  await cognitoRequest("ResendConfirmationCode", {
+    ClientId: clientId,
+    Username: email,
   });
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
@@ -14,22 +14,49 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { confirmSignUp, isCognitoConfigured, signIn, signUp } from "@/lib/auth";
+import { PageSpinner } from "@/components/loading";
+import {
+  confirmSignUp,
+  isCognitoConfigured,
+  resendConfirmationCode,
+  signIn,
+  signUp,
+} from "@/lib/auth";
 
-export default function SignupPage() {
+const RESEND_COOLDOWN_MS = 60_000;
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<"register" | "confirm">("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [givenName, setGivenName] = useState("");
   const [familyName, setFamilyName] = useState("");
   const [code, setCode] = useState("");
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const emailParam = searchParams.get("email");
+    if (emailParam) setEmail(emailParam);
+    if (searchParams.get("confirm") === "1") {
+      setStep("confirm");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (resendAvailableAt <= Date.now()) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [resendAvailableAt]);
 
   const registerMutation = useMutation({
     mutationFn: () => signUp({ email, password, givenName, familyName }),
     onSuccess: async (result) => {
       if (result.needsConfirmation) {
         setStep("confirm");
+        setResendAvailableAt(Date.now() + RESEND_COOLDOWN_MS);
         toast.success("Check your email for a confirmation code");
       } else {
         await signIn(email, password);
@@ -54,6 +81,17 @@ export default function SignupPage() {
     },
   });
 
+  const resendMutation = useMutation({
+    mutationFn: () => resendConfirmationCode(email),
+    onSuccess: () => {
+      setResendAvailableAt(Date.now() + RESEND_COOLDOWN_MS);
+      toast.success("A new confirmation code was sent to your email");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Could not resend code");
+    },
+  });
+
   function onRegister(e: React.FormEvent) {
     e.preventDefault();
     registerMutation.mutate();
@@ -64,7 +102,17 @@ export default function SignupPage() {
     confirmMutation.mutate();
   }
 
-  const pending = registerMutation.isPending || confirmMutation.isPending;
+  const pending =
+    registerMutation.isPending ||
+    confirmMutation.isPending ||
+    resendMutation.isPending;
+
+  const resendSecondsLeft = Math.max(
+    0,
+    Math.ceil((resendAvailableAt - Date.now()) / 1000),
+  );
+
+  const needsPasswordOnConfirm = step === "confirm" && !password;
 
   return (
     <div className="flex min-h-full flex-1 items-center justify-center px-4 py-16">
@@ -78,7 +126,7 @@ export default function SignupPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           {step === "register"
             ? "Start filing company and trustees registrations."
-            : `Enter the code sent to ${email}.`}
+            : `Enter the confirmation code sent to ${email}. Check spam or promotions if you do not see it.`}
           {!isCognitoConfigured() ? (
             <span className="mt-1 block text-amber-800">
               Cognito env vars not set — local mock auth is enabled.
@@ -145,9 +193,36 @@ export default function SignupPage() {
         ) : (
           <form onSubmit={onConfirm} className="mt-8 space-y-5">
             <Field>
+              <FieldLabel htmlFor="confirmEmail">Email</FieldLabel>
+              <Input
+                id="confirmEmail"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Field>
+            {needsPasswordOnConfirm ? (
+              <Field>
+                <FieldLabel htmlFor="confirmPassword">Password</FieldLabel>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
+            ) : null}
+            <Field>
               <FieldLabel htmlFor="code">Confirmation code</FieldLabel>
               <Input
                 id="code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 required
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -163,6 +238,26 @@ export default function SignupPage() {
                 "Confirm and continue"
               )}
             </Button>
+            {isCognitoConfigured() ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={pending || !email || resendSecondsLeft > 0}
+                onClick={() => resendMutation.mutate()}
+              >
+                {resendMutation.isPending ? (
+                  <>
+                    <Spinner className="size-4" />
+                    Sending…
+                  </>
+                ) : resendSecondsLeft > 0 ? (
+                  `Resend code in ${resendSecondsLeft}s`
+                ) : (
+                  "Resend confirmation code"
+                )}
+              </Button>
+            ) : null}
           </form>
         )}
 
@@ -177,5 +272,13 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<PageSpinner label="Loading sign up" />}>
+      <SignupForm />
+    </Suspense>
   );
 }
